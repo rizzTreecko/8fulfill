@@ -1,0 +1,8 @@
+{
+  "name": "8fulfill",
+  "short_name": "8fulfill",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#eef2f5",
+  "theme_color": "#007a5a"
+}

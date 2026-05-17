@@ -1,0 +1,9 @@
+node_modules/
+.vercel/
+output/
+.playwright-cli/
+*.log
+BBDG-*.xlsx
+template.xlsx
+
+.vercel

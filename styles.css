@@ -1,0 +1,409 @@
+:root {
+  color-scheme: light;
+  --bg: #eef2f5;
+  --panel: #ffffff;
+  --text: #17202a;
+  --muted: #607080;
+  --border: #cfd7df;
+  --accent: #007a5a;
+  --accent-dark: #005f47;
+  --danger: #b42318;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.shell {
+  width: min(1040px, 100%);
+  margin: 0 auto;
+  padding: 12px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0 12px;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+h2 {
+  font-size: 15px;
+  line-height: 1.25;
+  margin-bottom: 10px;
+}
+
+h3 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.topbar p,
+.status,
+.file-list {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.form {
+  display: grid;
+  gap: 10px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.section-head,
+.device-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.section-head h2 {
+  margin-bottom: 0;
+}
+
+.button-row {
+  display: flex;
+  gap: 8px;
+}
+
+.devices {
+  display: grid;
+  gap: 10px;
+}
+
+.device-card {
+  border: 1px solid #d9e1e7;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fbfcfd;
+}
+
+.grid {
+  display: grid;
+  gap: 10px;
+  align-items: start;
+}
+
+.grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+label {
+  display: grid;
+  grid-template-rows: auto auto;
+  gap: 4px;
+  margin-bottom: 10px;
+  color: #2d3b45;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.grid > label {
+  margin-bottom: 0;
+  height: 100%;
+  align-content: stretch;
+}
+
+label:last-child {
+  margin-bottom: 0;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: #fff;
+  color: var(--text);
+  font-weight: 400;
+}
+
+textarea {
+  resize: vertical;
+  line-height: 1.35;
+}
+
+.grid input,
+.grid select {
+  height: 40px;
+  min-height: 40px;
+}
+
+.grid textarea {
+  height: 40px;
+  min-height: 40px;
+}
+
+.compact-panel .grid.two textarea {
+  min-height: 40px;
+  height: 40px;
+}
+
+.device-card > .grid.three:first-of-type {
+  grid-template-columns: minmax(160px, 0.8fr) minmax(170px, 0.8fr) minmax(260px, 1.4fr);
+}
+
+.device-card > .grid.three:nth-of-type(2) {
+  grid-template-columns: minmax(170px, 1fr) minmax(170px, 1fr) minmax(190px, 1fr);
+}
+
+.device-card > .grid.two {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.device-card > label textarea {
+  height: 56px;
+  min-height: 56px;
+}
+
+.device-card > .grid.two textarea {
+  height: 62px;
+  min-height: 62px;
+}
+
+.device-card > .grid.two label {
+  grid-template-rows: auto auto;
+}
+
+.device-card > label {
+  grid-template-rows: auto auto;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid rgba(0, 122, 90, 0.22);
+  border-color: var(--accent);
+}
+
+button {
+  border: 0;
+  border-radius: 6px;
+  min-height: 44px;
+  padding: 10px 14px;
+  font-weight: 700;
+}
+
+.primary {
+  width: 100%;
+  background: var(--accent);
+  color: #fff;
+}
+
+.primary:active,
+.primary:hover {
+  background: var(--accent-dark);
+}
+
+.icon-button {
+  background: #e8edf1;
+  color: #26343d;
+}
+
+.secondary {
+  width: 100%;
+  background: #e8edf1;
+  color: #26343d;
+}
+
+.quick-paste {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid #d9e1e7;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.quick-paste textarea {
+  min-height: 96px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+}
+
+.ocr-panel {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid #d9e1e7;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.ocr-panel input[type="file"] {
+  padding: 8px;
+}
+
+.ocr-result {
+  min-height: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.ocr-result.error {
+  color: var(--danger);
+}
+
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+
+.chip-button {
+  min-height: 38px;
+  padding: 8px 10px;
+  background: #eef4f1;
+  color: #174538;
+  border: 1px solid #c7d8d1;
+}
+
+.remove-device {
+  min-height: 36px;
+  padding: 8px 10px;
+  background: #f5e9e7;
+  color: #8a1f14;
+}
+
+.remove-device:disabled {
+  opacity: 0.45;
+}
+
+.status {
+  min-height: 22px;
+  text-align: center;
+}
+
+.status.error {
+  color: var(--danger);
+}
+
+.listening {
+  background: var(--accent);
+  color: #fff;
+}
+
+.compact-panel {
+  padding-bottom: 4px;
+}
+
+.optional-fields {
+  margin: 2px 0 10px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 8px 10px 0;
+  background: #fff;
+}
+
+.optional-fields summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.image-field {
+  margin-top: 4px;
+}
+
+.file-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 560px) {
+  .shell {
+    padding: 12px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .section-head,
+  .device-card-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .grid.two,
+  .grid.three,
+  .device-card > .grid.two,
+  .device-card > .grid.three,
+  .device-card > .grid.three:first-of-type,
+  .device-card > .grid.three:nth-of-type(2) {
+    grid-template-columns: 1fr;
+  }
+
+  .preset-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .icon-button,
+  .remove-device {
+    width: 100%;
+  }
+}
+
+@media (min-width: 561px) and (max-width: 860px) {
+  .grid.three {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

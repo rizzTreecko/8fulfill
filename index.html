@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>8fulfill</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1>8fulfill</h1>
+        <p>Nhập nhanh thông tin thiết bị và tạo ZIP</p>
+      </div>
+      <button id="resetButton" type="button" class="icon-button" title="Xoá bản nháp đã lưu">Clear saved draft</button>
+    </header>
+
+    <form id="itsmForm" class="form">
+      <input name="templateType" type="hidden" value="bbdgSr">
+      <input name="city" type="hidden" value="HCM">
+
+      <section class="panel compact-panel">
+        <h2>Form Header</h2>
+        <div class="grid two">
+          <label>
+            Số ticket
+            <input name="ticketId" autocomplete="off" required placeholder="SR-">
+          </label>
+          <label>
+            Ngày đánh giá
+            <input name="date" type="date" required>
+          </label>
+        </div>
+        <div class="grid two">
+          <label>
+            Đơn vị
+            <input name="unitName" required placeholder="">
+          </label>
+          <label>
+            Địa chỉ
+            <textarea name="address" required rows="2" placeholder=""></textarea>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <h2>Device Rows A-N</h2>
+          <button id="addDeviceButton" type="button" class="icon-button">Add device</button>
+        </div>
+        <div id="devices" class="devices"></div>
+      </section>
+
+      <button id="generateButton" class="primary" type="submit">Generate ZIP</button>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </form>
+  </main>
+
+  <template id="deviceTemplate">
+    <article class="device-card">
+      <div class="device-card-head">
+        <h3>Device <span data-device-number></span></h3>
+        <button type="button" class="remove-device" data-remove-device>Remove</button>
+      </div>
+
+      <section class="quick-paste">
+        <label>
+          Quick paste
+          <textarea data-field="quickPaste" rows="4" placeholder="PRL &#10;SERIAL NUMBER&#10;CPU/RAM/STORAGE&#10;DD/MM/YYYY"></textarea>
+        </label>
+        <button type="button" class="secondary" data-apply-quick-paste>Apply quick paste</button>
+      </section>
+
+      <section class="ocr-panel">
+        <label>
+          OCR PRL / Serial
+          <input data-field="ocrImage" type="file" accept="image/*" capture="environment">
+        </label>
+        <button type="button" class="secondary" data-run-ocr>Scan PRL + serial</button>
+        <p class="ocr-result" data-ocr-result></p>
+      </section>
+
+      <div class="grid three">
+        <label>
+          B. Người sử dụng, chức danh
+          <input data-field="userName" placeholder="">
+        </label>
+        <label>
+          C. Loại thiết bị
+          <select data-field="deviceType">
+            <option>Desktop</option>
+            <option>Laptop</option>
+            <option>Màn hình</option>
+            <option>Máy in</option>
+            <option>Máy scan</option>
+            <option>UPS</option>
+            <option>IPPhone</option>
+            <option>Switch</option>
+            <option>Router</option>
+            <option>Server</option>
+            <option>Máy chiếu</option>
+            <option>Thiết bị nhỏ lẻ (bàn phím, tai nghe, chuột,...)</option>
+          </select>
+        </label>
+        <label>
+          D. Model thiết bị
+          <input data-field="model" placeholder="Laptop/CPU...">
+        </label>
+      </div>
+
+      <div class="grid three">
+        <label>
+          E. Mã tài sản
+          <input data-field="assetCode" required placeholder="PRL">
+        </label>
+        <label>
+          F. Serial number
+          <input data-field="serialNumber" placeholder="">
+        </label>
+        <label>
+          G. Ngày xuất xưởng
+          <input data-field="manufactureDate" placeholder="DD/MM/YYYY">
+        </label>
+      </div>
+
+      <label>
+        H. Cấu hình thiết bị
+        <textarea data-field="config" rows="2" placeholder="CPU/RAM/Storage"></textarea>
+      </label>
+      <div class="preset-row" aria-label="Preset cấu hình nhanh">
+        <button type="button" class="chip-button" data-config-preset="CPU Core i5/Ram DDR4 8GB 3200/SSD NVME 512GB">i5 / 8GB / 512GB</button>
+        <button type="button" class="chip-button" data-config-preset="CPU Core i5/Ram DDR4 16GB 3200/SSD NVME 512GB">i5 / 16GB / 512GB</button>
+        <button type="button" class="chip-button" data-config-preset="CPU Core i7/Ram DDR4 16GB 3200/SSD NVME 512GB">i7 / 16GB / 512GB</button>
+        <button type="button" class="chip-button" data-config-custom>Custom</button>
+      </div>
+
+      <details class="optional-fields">
+        <summary>Thông tin bổ sung I-M</summary>
+        <div class="grid two">
+          <label>
+            I. Tình trạng thiết bị tại đơn vị sử dụng
+            <textarea data-field="deviceCondition" rows="2" placeholder=""></textarea>
+          </label>
+          <label>
+            J. Đề xuất của người dùng
+            <textarea data-field="userSuggestion" rows="2" placeholder=""></textarea>
+          </label>
+        </div>
+        <div class="grid three">
+          <label>
+            K. Đề xuất của IT với thiết bị của NSD
+            <textarea data-field="itProposal" rows="2" placeholder=""></textarea>
+          </label>
+          <label>
+            L. Đánh giá của IT về trạng thái tài sản
+            <select data-field="itAssessment">
+              <option></option>
+              <option>Sử dụng bình thường</option>
+              <option>Hỏng / không đáp ứng được nhu cầu công việc chờ sửa chữa, nâng cấp</option>
+              <option>Hỏng / không đáp ứng được nhu cầu công việc chờ thanh lý, chuyển nhượng</option>
+            </select>
+          </label>
+          <label>
+            M. Ghi chú
+            <input data-field="note" placeholder="">
+          </label>
+        </div>
+      </details>
+
+      <label class="image-field">
+        Evidence images for this device
+        <input data-field="images" type="file" accept="image/*" multiple>
+      </label>
+      <div class="file-list" data-image-list></div>
+    </article>
+  </template>
+
+  <script src="vendor/exceljs.min.js"></script>
+  <script src="vendor/jszip.min.js"></script>
+  <script src="vendor/tesseract/tesseract.min.js"></script>
+  <script src="template-base64.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
