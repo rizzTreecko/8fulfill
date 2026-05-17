@@ -3,7 +3,8 @@ node_modules/
 output/
 .playwright-cli/
 *.log
-BBDG-*.xlsx
-template.xlsx
+*.xlsx
+*.xls
+*.csv
 
 .vercel

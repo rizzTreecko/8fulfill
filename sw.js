@@ -1,11 +1,21 @@
-const CACHE_NAME = '8fulfill-v15';
-const ASSETS = [
+const CACHE_NAME = '8fulfill-v21';
+const VENDOR_ASSETS = [
   './vendor/exceljs.min.js',
   './vendor/jszip.min.js'
 ];
 
+const APP_FILE_PATHS = new Set([
+  '/',
+  '/index.html',
+  '/app.js',
+  '/styles.css',
+  '/template-base64.js',
+  '/manifest.webmanifest',
+  '/sw.js'
+]);
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(VENDOR_ASSETS)));
   self.skipWaiting();
 });
 
@@ -24,16 +34,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== location.origin) return;
 
-  const appFile = url.pathname === '/'
-    || url.pathname.endsWith('/index.html')
-    || url.pathname.endsWith('/app.js')
-    || url.pathname.endsWith('/styles.css')
-    || url.pathname.endsWith('/template-base64.js')
-    || url.pathname.endsWith('/manifest.webmanifest')
-    || url.pathname.endsWith('/sw.js');
-
-  if (appFile) {
-    event.respondWith(fetch(event.request, { cache: 'no-store' }).catch(() => caches.match(event.request)));
+  if (APP_FILE_PATHS.has(url.pathname)) {
+    event.respondWith(fetch(event.request, { cache: 'no-store' }));
     return;
   }
 

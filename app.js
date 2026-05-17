@@ -10,7 +10,7 @@
 
   const topFields = [
     'templateType', 'ticketId', 'city', 'date', 'unitName',
-    'employeeId', 'phone', 'address'
+    'representativeName', 'employeeId', 'phone', 'address'
   ];
 
   const deviceFields = [
@@ -28,8 +28,8 @@
     mouse: 'Không',
     adapter: 'Có',
     battery: 'Không',
-    dataStatus: 'Nguyên vẹn',
-    remedy: 'Hoàn trả'
+    dataStatus: '',
+    remedy: ''
   };
 
   function todayInputValue() {
@@ -44,251 +44,200 @@
     statusEl.classList.toggle('error', Boolean(isError));
   }
 
+  function setButtonPressState(button, pressed) {
+    if (!button || button.disabled) return;
+    button.classList.toggle('is-pressing', pressed);
+  }
+
+  function isVisibleControl(input) {
+    return !input.closest('[hidden]');
+  }
+
+  function getDeviceField(card, field) {
+    const inputs = Array.from(card.querySelectorAll(`[data-field="${field}"]`));
+    return inputs.find(isVisibleControl) || inputs[0] || null;
+  }
+
   function setDeviceField(card, field, value) {
-    const input = card.querySelector(`[data-field="${field}"]`);
+    const input = getDeviceField(card, field);
     if (!input || value === undefined || value === '') return;
     input.value = value;
   }
 
-  let ocrWorkerPromise;
-
-  function setOcrResult(card, message, isError) {
-    const result = card.querySelector('[data-ocr-result]');
-    if (result) {
-      result.textContent = message || '';
-      result.classList.toggle('error', Boolean(isError));
-    }
+  function normalizeForMatch(value) {
+    return (value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'D')
+      .toLowerCase();
   }
 
-  async function getOcrWorker() {
-    if (!window.Tesseract) {
-      throw new Error('OCR engine is not loaded.');
-    }
-    if (!ocrWorkerPromise) {
-      ocrWorkerPromise = Tesseract.createWorker('eng', Tesseract.OEM.LSTM_ONLY, {
-        workerPath: 'vendor/tesseract/worker.min.js',
-        corePath: 'vendor/tesseract-core',
-        langPath: 'vendor/tessdata',
-        cacheMethod: 'readOnly',
-        logger: (message) => {
-          if (message.status === 'recognizing text') {
-            setStatus(`OCR scanning ${Math.round((message.progress || 0) * 100)}%...`);
-          }
-        }
-      }).then(async (worker) => {
-        await worker.setParameters({
-          tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT,
-          preserve_interword_spaces: '1',
-          tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 /-_.:#'
-        });
-        return worker;
-      });
-    }
-    return ocrWorkerPromise;
+  function stripLabel(line) {
+    return line.replace(/^\s*[^:：=]{1,36}\s*[:：=]\s*/, '').trim();
   }
 
-  async function prepareOcrImage(file) {
-    const bitmap = await createImageBitmap(file);
-    const maxSide = 1800;
-    const scale = Math.min(2, maxSide / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-
-    const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = image.data;
-    for (let i = 0; i < data.length; i += 4) {
-      const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-      const contrast = Math.max(0, Math.min(255, (gray - 128) * 1.35 + 128));
-      data[i] = contrast;
-      data[i + 1] = contrast;
-      data[i + 2] = contrast;
-    }
-    ctx.putImageData(image, 0, 0);
-    bitmap.close?.();
-    return canvas;
-  }
-
-  function cleanOcrText(text) {
-    return text
-      .replace(/[|]/g, 'I')
-      .replace(/[“”]/g, '"')
-      .replace(/[‘’]/g, "'")
-      .replace(/\r/g, '\n');
-  }
-
-  function cleanAssetDigits(value) {
-    const cleaned = value
-      .toUpperCase()
-      .replace(/[OQD]/g, '0')
-      .replace(/[IL]/g, '1')
-      .replace(/[^0-9]/g, '');
-    return cleaned.length >= 5 ? cleaned : '';
-  }
-
-  function extractPrl(text) {
-    const lines = cleanOcrText(text).toUpperCase().split(/\n+/);
+  function labeledValue(lines, aliases) {
     for (const line of lines) {
-      const labeled = line.match(/\bP\s*R\s*L\b\s*[:#.-]?\s*(.+)$/);
-      if (!labeled) continue;
-      const token = (labeled[1].match(/[A-Z0-9]{5,14}/g) || [])[0] || '';
-      const digits = cleanAssetDigits(token);
-      if (digits) return `PRL ${digits}`;
-    }
-
-    const compact = cleanOcrText(text).toUpperCase().replace(/\s+/g, '');
-    const compactMatch = compact.match(/PRL([A-Z0-9]{5,14})/);
-    if (!compactMatch) return '';
-    const digits = cleanAssetDigits(compactMatch[1]);
-    return digits ? `PRL ${digits}` : '';
-  }
-
-  function cleanSerialCandidate(value) {
-    const cleaned = value
-      .toUpperCase()
-      .replace(/[^A-Z0-9-]/g, '')
-      .replace(/^-+|-+$/g, '');
-    if (cleaned.length < 5 || cleaned.length > 24) return '';
-    if (/^PRL/.test(cleaned) || /^20\d{2}$/.test(cleaned)) return '';
-    if (/^(MODEL|SERIAL|NUMBER|PRODUCT|SERVICE|TAG)$/.test(cleaned)) return '';
-    return cleaned;
-  }
-
-  function extractSerial(text) {
-    const lines = cleanOcrText(text).split(/\n+/).map((line) => line.trim()).filter(Boolean);
-    const labelPattern = /\b(?:SERIAL(?:\s*(?:NUMBER|NO|N0))?|S\s*\/\s*N|S\s*N|SERVICE\s*TAG|TAG)\b\s*[:#.-]?\s*([A-Z0-9-]{5,24})/i;
-
-    for (const line of lines) {
-      const match = line.match(labelPattern);
-      const serial = match ? cleanSerialCandidate(match[1]) : '';
-      if (serial) return serial;
-    }
-
-    const prl = extractPrl(text).replace(/\s+/g, '');
-    const candidates = cleanOcrText(text).toUpperCase().match(/\b[A-Z0-9][A-Z0-9-]{5,23}\b/g) || [];
-    for (const candidate of candidates) {
-      const serial = cleanSerialCandidate(candidate);
-      if (!serial || serial === prl) continue;
-      if (!/[A-Z]/.test(serial) || !/[0-9]/.test(serial)) continue;
-      if (/^(CORE|DDR|NVME|SATA|LAPTOP|DESKTOP|LASERJET|INSPIRON|LATITUDE|OPTIPLEX)/.test(serial)) continue;
-      return serial;
-    }
-    return '';
-  }
-
-  function cleanModelCandidate(value, serial) {
-    let cleaned = value
-      .replace(/\b(?:MODEL|MODEL NO|PRODUCT NAME|PRODUCT|DEVICE NAME|TYPE|MACHINE TYPE|NAME)\b\s*[:#.-]?\s*/ig, '')
-      .replace(/\b(?:SERIAL|SERIAL NUMBER|S\/N|SN|SERVICE TAG)\b.*$/ig, '')
-      .replace(/\bPRL\s*[A-Z0-9\s-]+$/ig, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (serial) cleaned = cleaned.replace(new RegExp(serial.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'ig'), '').trim();
-    cleaned = cleaned.replace(/^[-:.\s]+|[-:.\s]+$/g, '');
-    if (cleaned.length < 4 || cleaned.length > 80) return '';
-    if (/^\d+$/.test(cleaned) || /\b(?:SERIAL|WARRANTY|DATE|MFG|MADE IN)\b/i.test(cleaned)) return '';
-    return cleaned;
-  }
-
-  function inferModelFromOcrText(text, serial) {
-    const lines = cleanOcrText(text).split(/\n+/).map((line) => line.trim()).filter(Boolean);
-    const explicit = /\b(?:MODEL(?:\s*NO)?|PRODUCT(?:\s*NAME)?|DEVICE\s*NAME|MACHINE\s*TYPE)\b\s*[:#.-]?\s*(.+)$/i;
-    for (const line of lines) {
-      const match = line.match(explicit);
-      const model = match ? cleanModelCandidate(match[1], serial) : '';
-      if (model) return model;
-    }
-
-    const joined = lines.join(' ');
-    const brandPatterns = [
-      /\b(Dell\s+(?:Latitude|Inspiron|Vostro|OptiPlex|Precision|XPS)\s+[A-Z0-9-]+)\b/i,
-      /\b(HP\s+(?:LaserJet|EliteBook|ProBook|EliteDesk|ProDesk|ZBook|Pavilion)\s+[A-Z0-9-]+(?:\s+[A-Z0-9-]+)?)\b/i,
-      /\b(Lenovo\s+(?:ThinkPad|ThinkCentre|IdeaPad|Yoga)\s+[A-Z0-9-]+(?:\s+[A-Z0-9-]+)?)\b/i,
-      /\b(Canon\s+[A-Z]{1,5}[-\s]?[0-9A-Z-]+)\b/i,
-      /\b(Brother\s+[A-Z]{1,5}[-\s]?[0-9A-Z-]+)\b/i
-    ];
-    for (const pattern of brandPatterns) {
-      const match = joined.match(pattern);
-      const model = match ? cleanModelCandidate(match[1], serial) : '';
-      if (model) return model;
-    }
-
-    if (serial) {
-      const serialIndex = lines.findIndex((line) => line.toUpperCase().includes(serial.toUpperCase()));
-      const nearby = serialIndex >= 0 ? lines.slice(Math.max(0, serialIndex - 3), serialIndex + 2) : [];
-      for (const line of nearby) {
-        const model = cleanModelCandidate(line, serial);
-        if (model && /[A-Z]/i.test(model) && !/\b(PRL|SERIAL|SN|SERVICE|TAG)\b/i.test(model)) {
-          return model;
-        }
+      const normalized = normalizeForMatch(line);
+      const separator = line.match(/[:：=]/);
+      if (!separator) continue;
+      const label = normalizeForMatch(line.slice(0, separator.index));
+      if (aliases.some((alias) => label.includes(alias))) {
+        const value = stripLabel(line);
+        if (value) return value;
       }
     }
     return '';
   }
 
-  function detectTypeFromModel(model) {
-    if (/\b(laserjet|printer|canon|brother|máy\s*in)\b/i.test(model)) return 'Máy in';
-    if (/\b(monitor|màn\s*hình)\b/i.test(model)) return 'Màn hình';
-    if (/\b(laptop|latitude|inspiron|vostro|xps|elitebook|probook|thinkpad|ideapad)\b/i.test(model)) return 'Laptop';
-    if (/\b(optiplex|desktop|thinkcentre|elitedesk|prodesk)\b/i.test(model)) return 'Desktop';
+  function normalizeAssetCode(value) {
+    const text = (value || '').toUpperCase();
+    const hasPrl = /\bPRL\b/.test(text);
+    const match = text.match(/\b(?:PRL\s*[-:]?\s*)?([A-Z0-9]{5,16})\b/);
+    if (!match) return '';
+    const token = match[1].replace(/[OQD]/g, '0').replace(/[IL]/g, '1');
+    const digits = token.replace(/[^0-9]/g, '');
+    if (!/\d{5,}/.test(digits)) return '';
+    return hasPrl ? `PRL ${digits}` : digits;
+  }
+
+  function normalizeSerial(value) {
+    const cleaned = (value || '')
+      .toUpperCase()
+      .replace(/\b(?:SERIAL|S\/N|SN|SERVICE TAG|TAG|NO|NUMBER)\b\s*[:：=.-]?\s*/g, '')
+      .replace(/[^A-Z0-9-]/g, '')
+      .replace(/^-+|-+$/g, '');
+    if (cleaned.length < 5 || cleaned.length > 30) return '';
+    if (/^PRL/.test(cleaned) || /^20\d{2}$/.test(cleaned)) return '';
+    return cleaned;
+  }
+
+  function normalizeSlashDate(value) {
+    const text = value || '';
+    const slash = text.match(/\b(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})\b/);
+    if (slash) {
+      const year = slash[3].length === 2 ? `20${slash[3]}` : slash[3];
+      return `${pad2(slash[1])}/${pad2(slash[2])}/${year}`;
+    }
+    const iso = text.match(/\b(20\d{2})-(\d{1,2})-(\d{1,2})\b/);
+    return iso ? `${pad2(iso[3])}/${pad2(iso[2])}/${iso[1]}` : '';
+  }
+
+  function inferDeviceType(value) {
+    const text = normalizeForMatch(value);
+    if (/\b(laptop|notebook|latitude|inspiron|vostro|elitebook|probook|thinkpad|ideapad|xps)\b/.test(text)) return 'Laptop';
+    if (/\b(desktop|pc|optiplex|thinkcentre|elitedesk|prodesk|may tinh ban)\b/.test(text)) return 'Desktop';
+    if (/\b(monitor|man hinh|display)\b/.test(text)) return 'Màn hình';
+    if (/\b(printer|may in|laserjet|canon|brother)\b/.test(text)) return 'Máy in';
+    if (/\b(scanner|may scan)\b/.test(text)) return 'Máy scan';
+    if (/\b(ups)\b/.test(text)) return 'UPS';
+    if (/\b(ipphone|ip phone)\b/.test(text)) return 'IPPhone';
+    if (/\b(switch)\b/.test(text)) return 'Switch';
+    if (/\b(router)\b/.test(text)) return 'Router';
+    if (/\b(server)\b/.test(text)) return 'Server';
+    if (/\b(projector|may chieu)\b/.test(text)) return 'Máy chiếu';
     return '';
   }
 
-  async function runDeviceOcr(card) {
-    const file = card.querySelector('[data-field="ocrImage"]')?.files?.[0];
-    if (!file) {
-      setOcrResult(card, 'Choose a label photo first.', true);
-      return;
+  function looksLikeConfig(line) {
+    return /\b(cpu|core\s*i[3579]|ram|ddr|ssd|hdd|nvme|sata|gb|tb|storage)\b/i.test(line);
+  }
+
+  function looksLikeModel(line) {
+    return /\b(dell|hp|lenovo|thinkpad|latitude|inspiron|vostro|optiplex|elitebook|probook|thinkcentre|canon|brother|laserjet)\b/i.test(line);
+  }
+
+  function parseOfflineAutofill(rawText) {
+    const lines = (rawText || '')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const joined = lines.join('\n');
+
+    const assetFromLabel = labeledValue(lines, ['asset', 'asset code', 'ma tai san', 'ma ts', 'prl']);
+    const serialFromLabel = labeledValue(lines, ['serial', 'serial number', 'service tag', 's/n', 'sn']);
+    const modelFromLabel = labeledValue(lines, ['model', 'product', 'product name', 'device name', 'ten thiet bi']);
+    const typeFromLabel = labeledValue(lines, ['type', 'loai thiet bi', 'device type']);
+    const configFromLabel = labeledValue(lines, ['config', 'configuration', 'cau hinh']);
+    const dateFromLabel = labeledValue(lines, ['date', 'ngay xuat xuong', 'manufacture', 'mfg']);
+
+    const assetCode = normalizeAssetCode(assetFromLabel || (joined.match(/\bPRL\s*[-:]?\s*[A-Z0-9]{5,16}\b/i) || [''])[0] || lines[0]);
+    const serialNumber = normalizeSerial(serialFromLabel || (joined.match(/\b(?:S\/N|SN|SERIAL|SERVICE TAG)\s*[:：=.-]?\s*[A-Z0-9-]{5,30}\b/i) || [''])[0] || lines[1]);
+    const manufactureDate = normalizeSlashDate(dateFromLabel || joined);
+    const config = configFromLabel || lines.find(looksLikeConfig) || (!looksLikeConfig(lines[2] || '') ? '' : lines[2]);
+    const model = modelFromLabel || lines.find((line) => looksLikeModel(line) && line !== config) || '';
+    const userName = labeledValue(lines, ['user', 'nsd', 'nguoi su dung', 'ho ten']);
+    const assetName = labeledValue(lines, ['asset name', 'ten tai san', 'device', 'thiet bi']);
+    const chip = labeledValue(lines, ['chip', 'cpu', 'processor']);
+    const ram = labeledValue(lines, ['ram', 'memory']);
+    const hardDrive = labeledValue(lines, ['storage', 'disk', 'hard drive', 'hdd', 'ssd', 'o cung']);
+    const note = labeledValue(lines, ['note', 'ghi chu']);
+    const deviceCondition = labeledValue(lines, ['condition', 'tinh trang']);
+    const userSuggestion = labeledValue(lines, ['suggestion', 'de xuat nguoi dung', 'de xuat nsd']);
+    const itProposal = labeledValue(lines, ['it proposal', 'de xuat it']);
+    const deviceType = inferDeviceType(typeFromLabel || model || config || joined);
+
+    return {
+      userName,
+      deviceType,
+      model,
+      assetName,
+      assetCode,
+      serialNumber,
+      manufactureDate,
+      config,
+      chip,
+      ram,
+      hardDrive,
+      deviceCondition,
+      userSuggestion,
+      itProposal,
+      note
+    };
+  }
+
+  const imageFilesByCard = new WeakMap();
+
+  function fileKey(file) {
+    return `${file.name}:${file.size}:${file.lastModified}`;
+  }
+
+  function getImageFiles(card) {
+    return imageFilesByCard.get(card) || [];
+  }
+
+  function addImageFiles(card, files) {
+    const existing = getImageFiles(card);
+    const keys = new Set(existing.map(fileKey));
+    const next = [...existing];
+    for (const file of files) {
+      if (!file.type.startsWith('image/') || keys.has(fileKey(file))) continue;
+      keys.add(fileKey(file));
+      next.push(file);
     }
+    imageFilesByCard.set(card, next);
+    return next;
+  }
 
-    const button = card.querySelector('[data-run-ocr]');
-    button.disabled = true;
-    setOcrResult(card, 'Scanning locally...');
-    setStatus('OCR loading...');
-    try {
-      const image = await prepareOcrImage(file);
-      const worker = await getOcrWorker();
-      const { data } = await worker.recognize(image);
-      const text = data.text || '';
-      const assetCode = extractPrl(text);
-      const serialNumber = extractSerial(text);
-      const model = inferModelFromOcrText(text, serialNumber);
-      const deviceType = model ? detectTypeFromModel(model) : '';
-
-      if (assetCode) setDeviceField(card, 'assetCode', assetCode);
-      if (serialNumber) setDeviceField(card, 'serialNumber', serialNumber);
-      if (model) setDeviceField(card, 'model', model);
-      if (deviceType) setDeviceField(card, 'deviceType', deviceType);
-
-      const found = [
-        assetCode ? `PRL ${assetCode.replace(/^PRL\s*/, '')}` : '',
-        serialNumber ? `Serial ${serialNumber}` : '',
-        model ? `Model ${model}` : ''
-      ].filter(Boolean);
-      setOcrResult(card, found.length ? found.join(' / ') : 'No PRL or serial detected. Try a closer, sharper photo.', !found.length);
-      setStatus(found.length ? 'OCR applied.' : 'OCR finished with no detected PRL or serial.', !found.length);
-      saveDraft();
-    } catch (error) {
-      setOcrResult(card, error.message || String(error), true);
-      setStatus(error.message || String(error), true);
-    } finally {
-      button.disabled = false;
-    }
+  function removeImageFile(card, index) {
+    const next = getImageFiles(card).filter((_, fileIndex) => fileIndex !== index);
+    imageFilesByCard.set(card, next);
+    return next;
   }
 
   function addDevice(values) {
     const fragment = deviceTemplate.content.cloneNode(true);
     const card = fragment.querySelector('.device-card');
     devicesEl.appendChild(fragment);
+    card.querySelectorAll('[required]').forEach((input) => {
+      input.dataset.originalRequired = 'true';
+    });
+    updateTemplateMode();
 
     const data = { ...defaultDevice, ...(values || {}) };
     for (const field of deviceFields) {
-      const input = card.querySelector(`[data-field="${field}"]`);
-      if (input && data[field] !== undefined) {
-        input.value = data[field];
-      }
+      setDeviceField(card, field, data[field]);
     }
 
     renumberDevices();
@@ -298,23 +247,29 @@
 
   function applyQuickPaste(card) {
     const input = card.querySelector('[data-field="quickPaste"]');
-    const lines = (input?.value || '')
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
+    const rawText = input?.value || '';
 
-    if (!lines.length) {
-      setStatus('Quick paste is empty.', true);
+    if (!rawText.trim()) {
+      setStatus('Offline autofill is empty.', true);
       return;
     }
 
-    setDeviceField(card, 'assetCode', lines[0]);
-    setDeviceField(card, 'serialNumber', lines[1]);
-    setDeviceField(card, 'config', lines[2]);
-    setDeviceField(card, 'manufactureDate', lines[3]);
+    const parsed = parseOfflineAutofill(rawText);
+    const applied = [];
+    for (const [field, value] of Object.entries(parsed)) {
+      if (!value) continue;
+      setDeviceField(card, field, value);
+      applied.push(field);
+    }
+
+    if (!applied.length) {
+      setStatus('No supported asset fields found in the pasted text.', true);
+      return;
+    }
+
     input.value = '';
     saveDraft();
-    setStatus('Quick paste applied.');
+    setStatus(`Offline autofill applied ${applied.length} field${applied.length === 1 ? '' : 's'}.`);
   }
 
   function renumberDevices() {
@@ -338,7 +293,7 @@
     data.devices = getDeviceCards().map((card) => {
       const device = {};
       for (const field of deviceFields) {
-        const input = card.querySelector(`[data-field="${field}"]`);
+        const input = getDeviceField(card, field);
         device[field] = (input?.value || '').trim();
       }
       return device;
@@ -354,6 +309,7 @@
 
   function loadDraft() {
     form.elements.templateType.value = 'bbdgSr';
+    form.elements.city.value = 'HCM';
     form.elements.date.value = todayInputValue();
     try {
       const raw = localStorage.getItem(draftKey);
@@ -368,7 +324,12 @@
           form.elements[field].value = data[field];
         }
       }
-      form.elements.templateType.value = 'bbdgSr';
+      if (!form.elements.templateType.value) {
+        form.elements.templateType.value = 'bbdgSr';
+      }
+      if (!form.elements.city.value) {
+        form.elements.city.value = 'HCM';
+      }
 
       if (!form.elements.date.value) {
         form.elements.date.value = todayInputValue();
@@ -385,34 +346,49 @@
   function updateTemplateMode() {
     const templateType = form.elements.templateType.value;
     const isBbdgSr = templateType === 'bbdgSr';
-    document.querySelectorAll('[data-bbdg-sr-only]').forEach((el) => {
-      el.hidden = !isBbdgSr;
-    });
-    document.querySelectorAll('[data-tcb-only]').forEach((el) => {
-      el.hidden = isBbdgSr;
-      el.querySelectorAll('input, select, textarea').forEach((input) => {
-        input.required = !isBbdgSr && input.dataset.originalRequired === 'true';
+    const setMode = (selector, visible) => {
+      document.querySelectorAll(selector).forEach((el) => {
+        el.hidden = !visible;
+        el.querySelectorAll('input, select, textarea, button').forEach((control) => {
+          control.disabled = !visible;
+        });
+        el.querySelectorAll('input, select, textarea').forEach((input) => {
+          input.required = visible && input.dataset.originalRequired === 'true';
+        });
       });
-    });
+    };
+
+    setMode('[data-bbdg-sr-only]', isBbdgSr);
+    setMode('[data-tcb-only]', !isBbdgSr);
+
     if (isBbdgSr) {
+      if (form.elements.representativeName) form.elements.representativeName.required = false;
       if (form.elements.employeeId) form.elements.employeeId.required = false;
       if (form.elements.phone) form.elements.phone.required = false;
-    } else if (form.elements.employeeId && form.elements.phone) {
-      form.elements.employeeId.required = true;
-      form.elements.phone.required = true;
+    } else {
+      if (form.elements.representativeName) form.elements.representativeName.required = true;
+      if (form.elements.employeeId) form.elements.employeeId.required = true;
+      if (form.elements.phone) form.elements.phone.required = true;
     }
   }
 
   function renderImages(card) {
-    const input = card.querySelector('[data-field="images"]');
     const list = card.querySelector('[data-image-list]');
-    const files = Array.from(input.files || []);
+    const files = getImageFiles(card);
     list.innerHTML = '';
-    for (const file of files) {
+    files.forEach((file, index) => {
       const item = document.createElement('div');
-      item.textContent = `${file.name} (${Math.ceil(file.size / 1024)} KB)`;
+      item.className = 'file-list-item';
+      const name = document.createElement('span');
+      name.textContent = `${file.name} (${Math.ceil(file.size / 1024)} KB)`;
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'remove-image';
+      remove.dataset.removeImage = String(index);
+      remove.textContent = 'Xoá ảnh';
+      item.append(name, remove);
       list.appendChild(item);
-    }
+    });
   }
 
   function base64ToArrayBuffer(base64) {
@@ -503,16 +479,27 @@
     }
   }
 
+  function hardwareFromConfig(config) {
+    const parts = String(config || '').split(/[\/,;|]+/).map((part) => part.trim()).filter(Boolean);
+    const find = (pattern) => parts.find((part) => pattern.test(part)) || '';
+    return {
+      chip: find(/\b(cpu|core\s*i[3579]|xeon|ryzen|celeron|pentium)\b/i),
+      ram: find(/\b(ram|ddr|memory)\b/i),
+      hardDrive: find(/\b(ssd|hdd|nvme|sata|storage|tb|gb)\b/i)
+    };
+  }
+
   function writeDevice(sheet, rowNumber, index, person, device) {
+    const inferred = hardwareFromConfig(device.config);
     setCell(sheet, `A${rowNumber}`, String(index + 1));
     setCell(sheet, `B${rowNumber}`, device.userName || person.representativeName);
     setCell(sheet, `C${rowNumber}`, person.employeeId);
     setCell(sheet, `D${rowNumber}`, device.assetCode);
-    setCell(sheet, `E${rowNumber}`, device.assetName);
+    setCell(sheet, `E${rowNumber}`, device.assetName || device.model || device.deviceType);
     setCell(sheet, `F${rowNumber}`, device.mainboard);
-    setCell(sheet, `G${rowNumber}`, device.chip);
-    setCell(sheet, `H${rowNumber}`, device.ram);
-    setCell(sheet, `I${rowNumber}`, device.hardDrive);
+    setCell(sheet, `G${rowNumber}`, device.chip || inferred.chip);
+    setCell(sheet, `H${rowNumber}`, device.ram || inferred.ram);
+    setCell(sheet, `I${rowNumber}`, device.hardDrive || inferred.hardDrive);
     setCell(sheet, `J${rowNumber}`, device.keyboard);
     setCell(sheet, `K${rowNumber}`, device.mouse);
     setCell(sheet, `L${rowNumber}`, device.adapter);
@@ -665,7 +652,7 @@
     getDeviceCards().forEach((card, index) => {
       const dataForDevice = data.devices[index] || {};
       const folder = `images/device-${pad2(index + 1)}-${sanitizeFolderName(dataForDevice.assetCode, 'asset')}/`;
-      const files = Array.from(card.querySelector('[data-field="images"]').files || []);
+      const files = getImageFiles(card);
       for (const file of files) {
         zip.file(`${folder}${file.name}`, file);
       }
@@ -676,6 +663,20 @@
   }
 
   form.addEventListener('input', saveDraft);
+
+  document.addEventListener('pointerdown', (event) => {
+    const button = event.target.closest('button');
+    if (!button) return;
+    setButtonPressState(button, true);
+  });
+
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach((eventName) => {
+    document.addEventListener(eventName, (event) => {
+      const button = event.target.closest('button');
+      setButtonPressState(button, false);
+    });
+  });
+
   form.elements.templateType.addEventListener('change', () => {
     updateTemplateMode();
     saveDraft();
@@ -684,14 +685,18 @@
   devicesEl.addEventListener('change', (event) => {
     const card = event.target.closest('.device-card');
     if (card && event.target.matches('[data-field="images"]')) {
+      addImageFiles(card, Array.from(event.target.files || []));
+      event.target.value = '';
       renderImages(card);
     }
   });
 
   devicesEl.addEventListener('click', (event) => {
-    const ocr = event.target.closest('[data-run-ocr]');
-    if (ocr) {
-      runDeviceOcr(ocr.closest('.device-card'));
+    const removeImage = event.target.closest('[data-remove-image]');
+    if (removeImage) {
+      const card = removeImage.closest('.device-card');
+      removeImageFile(card, Number(removeImage.dataset.removeImage));
+      renderImages(card);
       return;
     }
 
@@ -712,7 +717,8 @@
 
     const custom = event.target.closest('[data-config-custom]');
     if (custom) {
-      custom.closest('.device-card')?.querySelector('[data-field="config"]')?.focus();
+      const card = custom.closest('.device-card');
+      getDeviceField(card, 'config')?.focus();
       return;
     }
 
@@ -734,9 +740,11 @@
     form.reset();
     devicesEl.innerHTML = '';
     form.elements.templateType.value = 'bbdgSr';
+    form.elements.city.value = 'HCM';
     form.elements.date.value = todayInputValue();
     addDevice();
-    setStatus('Draft cleared.');
+    updateTemplateMode();
+    setStatus('Đã xoá bản nháp.');
   });
 
   form.addEventListener('submit', async (event) => {
@@ -744,6 +752,7 @@
     if (!form.reportValidity()) return;
 
     generateButton.disabled = true;
+    generateButton.setAttribute('aria-busy', 'true');
     setStatus('Generating ZIP...');
     try {
       await generateZip(getFormData());
@@ -752,6 +761,7 @@
       setStatus(error.message || String(error), true);
     } finally {
       generateButton.disabled = false;
+      generateButton.removeAttribute('aria-busy');
     }
   });
 

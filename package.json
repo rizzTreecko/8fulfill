@@ -9,8 +9,6 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
-    "@tesseract.js-data/eng": "^1.0.0",
-    "serve": "^14.2.5",
-    "tesseract.js": "^7.0.0"
+    "serve": "^14.2.5"
   }
 }

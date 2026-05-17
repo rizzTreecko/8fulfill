@@ -12,21 +12,35 @@
     <header class="topbar">
       <div>
         <h1>8fulfill</h1>
-        <p>Nhập nhanh thông tin thiết bị và tạo ZIP</p>
+        <p>Đơn giản hoá quy trình lập biên bản</p>
       </div>
-      <button id="resetButton" type="button" class="icon-button" title="Xoá bản nháp đã lưu">Clear saved draft</button>
+      <button id="resetButton" type="button" class="icon-button" title="Xoá bản nháp đã lưu">Xoá bản nháp đã lưu</button>
     </header>
 
     <form id="itsmForm" class="form">
-      <input name="templateType" type="hidden" value="bbdgSr">
-      <input name="city" type="hidden" value="HCM">
-
       <section class="panel compact-panel">
-        <h2>Form Header</h2>
+        <h2>Thông tin chung</h2>
+        <div class="grid two">
+          <label>
+            Phiên bản form
+            <select name="templateType">
+              <option value="bbdgSr">BBDG-SR</option>
+              <option value="tcb">BBDG-ITSM</option>
+            </select>
+          </label>
+          <label data-tcb-only>
+            Thành phố
+            <select name="city">
+              <option>HCM</option>
+              <option>HN</option>
+              <option>DNG</option>
+            </select>
+          </label>
+        </div>
         <div class="grid two">
           <label>
             Số ticket
-            <input name="ticketId" autocomplete="off" required placeholder="SR-">
+            <input name="ticketId" autocomplete="off" required placeholder="">
           </label>
           <label>
             Ngày đánh giá
@@ -43,17 +57,31 @@
             <textarea name="address" required rows="2" placeholder=""></textarea>
           </label>
         </div>
+        <div class="grid three" data-tcb-only>
+          <label>
+            Username
+            <input name="representativeName" placeholder="">
+          </label>
+          <label>
+            ID nhân sự
+            <input name="employeeId" placeholder="">
+          </label>
+          <label>
+            Số điện thoại
+            <input name="phone" inputmode="tel" placeholder="">
+          </label>
+        </div>
       </section>
 
       <section class="panel">
         <div class="section-head">
-          <h2>Device Rows A-N</h2>
-          <button id="addDeviceButton" type="button" class="icon-button">Add device</button>
+          <h2>Thông tin thiết bị</h2>
+          <button id="addDeviceButton" type="button" class="icon-button">Thêm thiết bị</button>
         </div>
         <div id="devices" class="devices"></div>
       </section>
 
-      <button id="generateButton" class="primary" type="submit">Generate ZIP</button>
+      <button id="generateButton" class="primary" type="submit">Tạo ZIP</button>
       <p id="status" class="status" role="status" aria-live="polite"></p>
     </form>
   </main>
@@ -61,116 +89,230 @@
   <template id="deviceTemplate">
     <article class="device-card">
       <div class="device-card-head">
-        <h3>Device <span data-device-number></span></h3>
-        <button type="button" class="remove-device" data-remove-device>Remove</button>
+        <h3>Thiết bị <span data-device-number></span></h3>
+        <button type="button" class="remove-device" data-remove-device>Xoá</button>
       </div>
 
       <section class="quick-paste">
         <label>
-          Quick paste
-          <textarea data-field="quickPaste" rows="4" placeholder="PRL &#10;SERIAL NUMBER&#10;CPU/RAM/STORAGE&#10;DD/MM/YYYY"></textarea>
+          Điền thông minh
+          <textarea data-field="quickPaste" rows="5" placeholder="Username&#10;Mã tài sản&#10;Serial&#10;Model&#10;17/05/2026"></textarea>
         </label>
-        <button type="button" class="secondary" data-apply-quick-paste>Apply quick paste</button>
+        <button type="button" class="secondary" data-apply-quick-paste>Nhập</button>
       </section>
 
-      <section class="ocr-panel">
-        <label>
-          OCR PRL / Serial
-          <input data-field="ocrImage" type="file" accept="image/*" capture="environment">
-        </label>
-        <button type="button" class="secondary" data-run-ocr>Scan PRL + serial</button>
-        <p class="ocr-result" data-ocr-result></p>
-      </section>
-
-      <div class="grid three">
-        <label>
-          B. Người sử dụng, chức danh
-          <input data-field="userName" placeholder="">
-        </label>
-        <label>
-          C. Loại thiết bị
-          <select data-field="deviceType">
-            <option>Desktop</option>
-            <option>Laptop</option>
-            <option>Màn hình</option>
-            <option>Máy in</option>
-            <option>Máy scan</option>
-            <option>UPS</option>
-            <option>IPPhone</option>
-            <option>Switch</option>
-            <option>Router</option>
-            <option>Server</option>
-            <option>Máy chiếu</option>
-            <option>Thiết bị nhỏ lẻ (bàn phím, tai nghe, chuột,...)</option>
-          </select>
-        </label>
-        <label>
-          D. Model thiết bị
-          <input data-field="model" placeholder="Laptop/CPU...">
-        </label>
-      </div>
-
-      <div class="grid three">
-        <label>
-          E. Mã tài sản
-          <input data-field="assetCode" required placeholder="PRL">
-        </label>
-        <label>
-          F. Serial number
-          <input data-field="serialNumber" placeholder="">
-        </label>
-        <label>
-          G. Ngày xuất xưởng
-          <input data-field="manufactureDate" placeholder="DD/MM/YYYY">
-        </label>
-      </div>
-
-      <label>
-        H. Cấu hình thiết bị
-        <textarea data-field="config" rows="2" placeholder="CPU/RAM/Storage"></textarea>
-      </label>
-      <div class="preset-row" aria-label="Preset cấu hình nhanh">
-        <button type="button" class="chip-button" data-config-preset="CPU Core i5/Ram DDR4 8GB 3200/SSD NVME 512GB">i5 / 8GB / 512GB</button>
-        <button type="button" class="chip-button" data-config-preset="CPU Core i5/Ram DDR4 16GB 3200/SSD NVME 512GB">i5 / 16GB / 512GB</button>
-        <button type="button" class="chip-button" data-config-preset="CPU Core i7/Ram DDR4 16GB 3200/SSD NVME 512GB">i7 / 16GB / 512GB</button>
-        <button type="button" class="chip-button" data-config-custom>Custom</button>
-      </div>
-
-      <details class="optional-fields">
-        <summary>Thông tin bổ sung I-M</summary>
-        <div class="grid two">
-          <label>
-            I. Tình trạng thiết bị tại đơn vị sử dụng
-            <textarea data-field="deviceCondition" rows="2" placeholder=""></textarea>
-          </label>
-          <label>
-            J. Đề xuất của người dùng
-            <textarea data-field="userSuggestion" rows="2" placeholder=""></textarea>
-          </label>
-        </div>
+      <section data-bbdg-sr-only>
         <div class="grid three">
           <label>
-            K. Đề xuất của IT với thiết bị của NSD
-            <textarea data-field="itProposal" rows="2" placeholder=""></textarea>
+            A. Người sử dụng, chức danh
+            <input data-field="userName" placeholder="">
           </label>
           <label>
-            L. Đánh giá của IT về trạng thái tài sản
-            <select data-field="itAssessment">
-              <option></option>
-              <option>Sử dụng bình thường</option>
-              <option>Hỏng / không đáp ứng được nhu cầu công việc chờ sửa chữa, nâng cấp</option>
-              <option>Hỏng / không đáp ứng được nhu cầu công việc chờ thanh lý, chuyển nhượng</option>
+            B. Loại thiết bị
+            <select data-field="deviceType">
+              <option>Desktop</option>
+              <option>Laptop</option>
+              <option>Màn hình</option>
+              <option>Máy in</option>
+              <option>Máy scan</option>
+              <option>UPS</option>
+              <option>IPPhone</option>
+              <option>Switch</option>
+              <option>Router</option>
+              <option>Server</option>
+              <option>Máy chiếu</option>
+              <option>Thiết bị nhỏ lẻ (bàn phím, tai nghe, chuột,...)</option>
             </select>
           </label>
           <label>
-            M. Ghi chú
-            <input data-field="note" placeholder="">
+            C. Model thiết bị
+            <input data-field="model" placeholder="Laptop/CPU...">
           </label>
         </div>
-      </details>
+
+        <div class="grid three">
+          <label>
+            D. Mã tài sản
+            <input data-field="assetCode" required placeholder="">
+          </label>
+          <label>
+            E. Serial number
+            <input data-field="serialNumber" placeholder="">
+          </label>
+          <label>
+            F. Ngày xuất xưởng
+            <input data-field="manufactureDate" placeholder="DD/MM/YYYY">
+          </label>
+        </div>
+
+        <label>
+          H. Cấu hình thiết bị
+          <textarea data-field="config" rows="2" placeholder="CPU/RAM/Storage"></textarea>
+        </label>
+        <div class="preset-row" aria-label="Preset cấu hình nhanh">
+          <button type="button" class="chip-button" data-config-preset="CPU Core i3/Ram DDR4 8GB 3200/SSD NVME 256GB">i3 / 8GB / 256GB</button>
+          <button type="button" class="chip-button" data-config-preset="CPU Core i5/Ram DDR4 8GB 3200/SSD NVME 256GB">i5 / 8GB / 256GB</button>
+          <button type="button" class="chip-button" data-config-preset="CPU Core i5/Ram DDR4 32GB 3200/SSD NVME 512GB">i5 / 32GB / 512GB</button>
+        </div>
+
+        <details class="optional-fields" open>
+          <summary>Thông tin bổ sung</summary>
+          <div class="grid two">
+            <label>
+              G. Tình trạng thiết bị tại đơn vị sử dụng
+              <textarea data-field="deviceCondition" rows="2" placeholder=""></textarea>
+            </label>
+            <label>
+              H. Đề xuất của người dùng
+              <textarea data-field="userSuggestion" rows="2" placeholder=""></textarea>
+            </label>
+          </div>
+          <div class="grid three">
+            <label>
+              J. Đề xuất của IT với thiết bị của NSD
+              <textarea data-field="itProposal" rows="2" placeholder=""></textarea>
+            </label>
+            <label>
+              K. Đánh giá của IT về trạng thái tài sản
+              <select data-field="itAssessment">
+                <option></option>
+                <option>Sử dụng bình thường</option>
+                <option>Hỏng / không đáp ứng được nhu cầu công việc chờ sửa chữa, nâng cấp</option>
+                <option>Hỏng / không đáp ứng được nhu cầu công việc chờ thanh lý, chuyển nhượng</option>
+              </select>
+            </label>
+            <label>
+              L. Ghi chú
+              <input data-field="note" placeholder="">
+            </label>
+          </div>
+        </details>
+      </section>
+
+      <section data-tcb-only>
+        <details class="optional-fields" open>
+          <summary>Thông tin thiết bị</summary>
+          <div class="grid three">
+            <label>
+              Username
+              <input data-field="userName" placeholder="">
+            </label>
+            <label>
+              Mã tài sản
+              <input data-field="assetCode" required placeholder="">
+            </label>
+            <label>
+              Tên thiết bị
+              <input data-field="assetName" placeholder="Laptop/CPU/Server...">
+            </label>
+          </div>
+          <div class="grid three">
+            <label>
+              Loại thiết bị
+              <select data-field="deviceType">
+                <option>Desktop</option>
+                <option>Laptop</option>
+                <option>Màn hình</option>
+                <option>Máy in</option>
+                <option>Máy scan</option>
+                <option>UPS</option>
+                <option>IPPhone</option>
+                <option>Switch</option>
+                <option>Router</option>
+                <option>Server</option>
+                <option>Máy chiếu</option>
+                <option>Thiết bị nhỏ lẻ (bàn phím, tai nghe, chuột,...)</option>
+              </select>
+            </label>
+            <label>
+              Loại thiết bị
+              <input data-field="model" placeholder="Laptop/CPU...">
+            </label>
+            <label>
+              Serial number
+              <input data-field="serialNumber" placeholder="">
+            </label>
+          </div>
+          <div class="grid three">
+            <label>
+              Mainboard
+              <select data-field="mainboard">
+                <option>Có</option>
+                <option>Không</option>
+              </select>
+            </label>
+            <label>
+              CPU
+              <input data-field="chip" placeholder="Core i5 / Xeon...">
+            </label>
+            <label>
+              RAM
+              <input data-field="ram" placeholder="8GB DDR4...">
+            </label>
+          </div>
+          <div class="grid three">
+            <label>
+              Ổ cứng
+              <input data-field="hardDrive" placeholder="SSD/HDD...">
+            </label>
+            <label>
+              Các linh kiện khác
+              <input data-field="otherParts" placeholder="">
+            </label>
+            <label>
+              Cấu hình
+              <textarea data-field="config" rows="2" placeholder="CPU/RAM/Storage"></textarea>
+            </label>
+          </div>
+          <div class="grid three">
+            <label>
+              Bàn phím
+              <select data-field="keyboard">
+                <option>Không</option>
+                <option>Có</option>
+              </select>
+            </label>
+            <label>
+              Chuột
+              <select data-field="mouse">
+                <option>Không</option>
+                <option>Có</option>
+              </select>
+            </label>
+            <label>
+              Nguồn adapter
+              <select data-field="adapter">
+                <option>Có</option>
+                <option>Không</option>
+              </select>
+            </label>
+          </div>
+          <div class="grid three">
+            <label>
+              Pin
+              <select data-field="battery">
+                <option>Không</option>
+                <option>Có</option>
+              </select>
+            </label>
+            <label>
+              Tình trạng dữ liệu
+              <input data-field="dataStatus" placeholder="">
+            </label>
+            <label>
+              Giải pháp
+              <input data-field="remedy" placeholder="">
+            </label>
+          </div>
+          <label>
+            Tình trạng thiết bị
+            <textarea data-field="deviceCondition" rows="2" placeholder=""></textarea>
+          </label>
+        </details>
+      </section>
 
       <label class="image-field">
-        Evidence images for this device
+        Ảnh chụp thiết bị
         <input data-field="images" type="file" accept="image/*" multiple>
       </label>
       <div class="file-list" data-image-list></div>
@@ -179,7 +321,6 @@
 
   <script src="vendor/exceljs.min.js"></script>
   <script src="vendor/jszip.min.js"></script>
-  <script src="vendor/tesseract/tesseract.min.js"></script>
   <script src="template-base64.js"></script>
   <script src="app.js"></script>
 </body>
